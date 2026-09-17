@@ -38,7 +38,7 @@ have an LLM review it, and commit the feedback.
 
 - [Assignment Information](https://github.com/bmw-ece-ntust/multimedia-wireless-network?tab=readme-ov-file#a1--background-study-notes)
 - Submissions:
-  - [ ] [Study Note](path to your .md file) — five-minute presentation, how to read a paper, and your project proposal
+  - [ ] [Study Note](./A1-background/study-note.md) — five-minute presentation, how to read a paper, and your project proposal
   - [ ] [Slides](path to your slides)
   - [ ] [Rehearsal Presentation](path to recording + LLM feedback) — Speaker Coach recording and the LLM review
   - [ ] [Peer Review](https://forms.gle/eGE2JJgjXpCXwqfq7)
