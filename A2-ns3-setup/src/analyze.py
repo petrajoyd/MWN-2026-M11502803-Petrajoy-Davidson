@@ -10,7 +10,7 @@ Reads <tag>-tx.csv and <tag>-flowmon.xml from the results directory and writes:
 
 The "3GPP model" curves are the TR 38.838 / TR 26.926 video model itself:
 frame size and jitter as truncated Gaussians (exact PDF), inter-arrival and
-packet-level curves from 10^6 Monte-Carlo draws of the same model.
+packet-level curves from 2x10^5 Monte-Carlo frames of the same model.
 """
 import argparse
 import json
@@ -128,7 +128,7 @@ def main():
 
     # ---- 3GPP model ----
     rng = np.random.default_rng(1)
-    size_rv, jit_rv, m_size, m_iat, m_psize, m_piat = model_draws(p, 1_000_000, rng)
+    size_rv, jit_rv, m_size, m_iat, m_psize, m_piat = model_draws(p, 200_000, rng)
 
     ks_size = stats.kstest(f_size, size_rv.cdf)
     ks_iat = stats.ks_2samp(f_iat, m_iat)
