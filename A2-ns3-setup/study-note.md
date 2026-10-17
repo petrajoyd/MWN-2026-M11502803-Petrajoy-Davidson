@@ -244,6 +244,10 @@ The I/O graph (Statistics → I/O Graphs, 1 ms bins, Y = bits) shows the same st
 
 Vector version saved from Wireshark: [results/intent-a70-rh-8-1_IO.pdf](results/intent-a70-rh-8-1_IO.pdf).
 
+Zoomed to the first 1.2 s, the frames separate: the ~500 kbit spikes come in pairs, one frame per video UE, and each pair repeats about every 16.7 ms (60 fps), shifted back and forth by the ±4 ms frame jitter.
+
+![Wireshark I/O graph zoomed to 0-1.2 s: pairs of ~500 kbit slice A spikes, one per video UE, about every 16.7 ms; slice B flat](results/intent-a70-rh-8-1_IO_zoom.png)
+
 ## 6. Link to My Project
 
 | A1 plan for A2 | Status |
