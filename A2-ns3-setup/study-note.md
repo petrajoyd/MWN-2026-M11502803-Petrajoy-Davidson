@@ -240,7 +240,7 @@ The screenshot below is the last video frame to UE 7.0.0.2 (t = 5.4897 s): 1 400
 
 The I/O graph (Statistics → I/O Graphs, 1 ms bins, Y = bits) shows the same structure over the whole run. Slice A (red) is a train of spikes, one per video frame: most reach about 500 kbit, which is one frame of the model's mean size (62 500 B × 8 = 500 kbit at 30 Mbps and 60 fps), and the ~1 Mbit spikes are 1 ms bins where the frames of both UEs land together. Between frames the link is idle. Slice B (blue) stays near zero: 100 B every 4 ms per UE is only 0.26 Mbit/s each.
 
-![Wireshark I/O graph, 1 ms bins: slice A spikes of ~500 kbit (one video frame) and ~1 Mbit (two UEs' frames in the same bin), slice B flat near zero](results/wireshark-io-graph.png)
+![Wireshark I/O graph, 1 ms bins: slice A spikes of ~500 kbit (one video frame) and ~1 Mbit (two UEs' frames in the same bin), slice B flat near zero](results/intent-a70-rh-8-1_IO.png)
 
 ## 6. Link to My Project
 
