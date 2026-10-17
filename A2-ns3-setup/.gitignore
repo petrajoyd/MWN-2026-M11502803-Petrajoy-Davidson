@@ -1,3 +1,5 @@
 # PCAPs are 41-68 MB each; keep only the a70 capture in git
 results/*.pcap
 !results/intent-a70-rh-8-1.pcap
+# speaker script: kept locally, not published
+presentation/script.md
