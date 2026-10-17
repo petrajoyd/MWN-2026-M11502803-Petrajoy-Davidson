@@ -79,6 +79,7 @@ Configure result: `nr` is in "Modules configured to be built", `SQLite support :
 | 1 | `Exception: Refusing to run as root` from `./ns3 configure` | I cloned and ran everything in a root shell; ns-3 refuses to build as root on purpose | `mv /root/ns-3-dev /home/joy/ && chown -R joy:joy /home/joy/ns-3-dev`, then work as `joy` |
 | 2 | `CMake 3.25..3.25 or higher is required. You are running version 3.22.1` | ns-3.48 raised the CMake minimum from 3.20 to 3.25; Ubuntu 22.04 ships 3.22 | user-level CMake 3.31.6 from pip, first on `PATH`; then `rm -rf cmake-cache` and configure again. Pinned 3.x rather than CMake 4, which drops old `cmake_minimum_required` syntax |
 | 3 | 5G-LENA README install commands still say `ns-3.46` / `5g-lena-v4.1.1` | README text not updated; its compatibility table is | followed the table: v5.1.y ↔ ns-3.48 |
+| 4 | Wireshark shows slice A packets as protocol "TAPA", `Tunnel - V=0, T=Type 0` | UDP port 5000 is registered to the Trapeze Access Point Access protocol, so Wireshark guesses that dissector | Analyze → Enabled Protocols → untick TAPA (`tshark --disable-protocol tapa`); the packets then show as plain UDP `→ 5000 Len=1400` |
 
 ## 2. Traffic Model (3GPP TR 26.926)
 
@@ -219,7 +220,27 @@ Four intents, all **accepted** by the capacity-only check. Slice A is the same i
 
 ### 5.3 PCAP in Wireshark
 
-TODO after the run: screenshot of `results/intent-a70-rh-*.pcap` (UDP to port 5000 in bursts of ~45 packets every ~16.7 ms; port 6000 every 4 ms), plus Statistics → I/O Graph.
+[`results/intent-a70-rh-8-1.pcap`](results/intent-a70-rh-8-1.pcap) is captured on the remote host's point-to-point link, so it holds every downlink packet of both slices before the GTP tunnel (Wireshark 4.x on Windows; link type PPP). Capture: 32 465 packets, 42 MB, 5.496 s.
+
+**The capture agrees with my other two sources, packet for packet:**
+
+| Flow | Slice | Packets in PCAP (`tshark -z conv,udp`) | Packets in FlowMonitor | Packets in my tx log |
+| --- | --- | --- | --- | --- |
+| 1.0.0.2 → 7.0.0.3:5000 | A | 14 872 | 14 872 | |
+| 1.0.0.2 → 7.0.0.2:5000 | A | 14 843 | 14 843 | |
+| both port 5000 | A | 29 715 | 29 715 | 29 715 (660 frames) |
+| 1.0.0.2 → 7.0.0.4:6000 | B | 1 375 | 1 375 | |
+| 1.0.0.2 → 7.0.0.5:6000 | B | 1 375 | 1 375 | |
+
+**The 3GPP frame structure is visible on the wire.** Each video frame leaves as a burst of 1 400 B payloads (1 430 B on the wire: + 28 B IP/UDP + 2 B PPP) within a few microseconds, then the link is quiet until the next frame. For UE 7.0.0.2 the first frames hold 43, 53, 48, 47, 45 packets, and the gaps between bursts are 16.0, 16.9, 16.9, 16.0, 15.5, 17.4 ms: the 16.67 ms period of 60 fps plus the ±4 ms jitter. Slice B shows one 100 B packet to each of its two UEs every 4 ms.
+
+The screenshot below is the last video frame to UE 7.0.0.2 (t = 5.4897 s): 1 400 B payloads leaving a few microseconds apart (the remote host link is 100 Gb/s), closed by the frame's remainder packet (`Len=1223`), then slice B's 100 B packets to 7.0.0.4 and 7.0.0.5 at 5.492 s and 5.496 s, 4 ms apart.
+
+![Wireshark packet list: the end of one slice A video frame as a burst of 1400 B UDP packets to port 5000 with a 1223 B remainder, then slice B 100 B packets to port 6000 every 4 ms](results/wireshark-packets.png)
+
+The I/O graph (Statistics → I/O Graphs, 1 ms bins, Y = bits) shows the same structure over the whole run. Slice A (red) is a train of spikes, one per video frame: most reach about 500 kbit, which is one frame of the model's mean size (62 500 B × 8 = 500 kbit at 30 Mbps and 60 fps), and the ~1 Mbit spikes are 1 ms bins where the frames of both UEs land together. Between frames the link is idle. Slice B (blue) stays near zero: 100 B every 4 ms per UE is only 0.26 Mbit/s each.
+
+![Wireshark I/O graph, 1 ms bins: slice A spikes of ~500 kbit (one video frame) and ~1 Mbit (two UEs' frames in the same bin), slice B flat near zero](results/wireshark-io-graph.png)
 
 ## 6. Link to My Project
 
