@@ -1,0 +1,199 @@
+# A2: ns-3 Setup & Traffic Model
+
+**Course:** Multimedia Wireless Networks (ET5907701), Fall 2026 · **Student:** Petrajoy Davidson (M11502803) · **Path:** Advanced · **Presentation:** Week 7, 10 minutes
+
+**One-line take-away:** ns-3.48 + 5G-LENA v5.1 runs on my lab VM, and my first scenario is already the testbed of my project: a slice intent sets the bandwidth of two NR slices, slice A carries 3GPP XR video that I generate and verify against the model, and FlowMonitor tells whether slice B still meets its SLA.
+
+## Table of Contents
+
+1. [Setup](#1-setup)
+   - [1.1 Platform and versions](#11-platform-and-versions)
+   - [1.2 Install steps](#12-install-steps)
+   - [1.3 What broke](#13-what-broke)
+2. [Traffic Model (3GPP TR 26.926)](#2-traffic-model-3gpp-tr-26926)
+   - [2.1 The model](#21-the-model)
+   - [2.2 Built-in or my own?](#22-built-in-or-my-own)
+3. [First Scenario: Intent-Driven Two-Slice NR](#3-first-scenario-intent-driven-two-slice-nr)
+4. [Source Code and Run Commands](#4-source-code-and-run-commands)
+5. [Results From My Run](#5-results-from-my-run)
+   - [5.1 Traffic model verification (PDF / CDF)](#51-traffic-model-verification-pdf--cdf)
+   - [5.2 Per-slice KPIs](#52-per-slice-kpis)
+   - [5.3 PCAP in Wireshark](#53-pcap-in-wireshark)
+6. [Link to My Project](#6-link-to-my-project)
+7. [References](#7-references)
+
+## 1. Setup
+
+### 1.1 Platform and versions
+
+| Item | Value |
+| --- | --- |
+| Machine | Lab VM `joy` (8 vCPU, 16 GiB RAM, ~500 GB disk), shared with my O2/k8s lab work |
+| OS | Ubuntu 22.04.4 LTS, kernel 5.15.0-190-generic |
+| ns-3 | `ns-3.48` (tag) |
+| NR module | 5G-LENA `5g-lena-v5.1.y` (branch), the release paired with ns-3.48 |
+| Compiler | g++ 11.4 (ns-3.48 needs g++ ≥ 11.1) |
+| CMake | 3.31.6 from pip, user-level (system CMake 3.22.1 is too old, see 1.3) |
+| Python | 3.10 (ns-3.48 needs ≥ 3.10) |
+| Build | `default` profile (debug + optimisation), examples and tests on, `-j4` |
+| Build time | TODO: from `time` in `~/a2-build.log` |
+
+**Why the VM and not my laptop:** the laptop is Windows without WSL. ns-3 is developed and tested on Linux, the VM already runs Ubuntu 22.04 with 8 cores, and it is the same machine I use for the O-RAN lab, so the project and the simulator live in one place.
+
+### 1.2 Install steps
+
+Run as the normal user (`joy`), inside `tmux` so a dropped SSH session does not stop the build.
+
+```bash
+# dependencies (as root)
+apt-get install -y g++ cmake ninja-build ccache git pkg-config python3 python3-dev python3-pip \
+  libc6-dev sqlite3 libsqlite3-dev libeigen3-dev \
+  python3-numpy python3-pandas python3-matplotlib python3-scipy
+
+# CMake >= 3.25 for ns-3.48 (as joy)
+python3 -m pip install --user "cmake==3.31.6"
+echo 'export PATH=$HOME/.local/bin:$PATH' >> ~/.bashrc && export PATH=$HOME/.local/bin:$PATH
+
+# ns-3 + 5G-LENA, matching versions (README compatibility table of the nr module)
+git clone https://gitlab.com/nsnam/ns-3-dev.git ~/ns-3-dev
+cd ~/ns-3-dev && git checkout -b ns-3.48 ns-3.48
+cd contrib && git clone https://gitlab.com/cttc-lena/nr.git
+cd nr && git checkout -b 5g-lena-v5.1.y origin/5g-lena-v5.1.y
+
+# configure and build
+cd ~/ns-3-dev
+./ns3 configure --enable-examples --enable-tests 2>&1 | tee ~/a2-configure.log
+time nice -n 10 ./ns3 build -j4 2>&1 | tee ~/a2-build.log
+
+# smoke test
+./ns3 run hello-simulator
+./ns3 run cttc-nr-demo
+```
+
+Configure result: `nr` is in "Modules configured to be built", `SQLite support : ON`, `Eigen3 support : ON`. Not built (not needed): brite, click, mpi, openflow, visualizer.
+
+### 1.3 What broke
+
+| # | Symptom | Cause | Fix |
+| --- | --- | --- | --- |
+| 1 | `Exception: Refusing to run as root` from `./ns3 configure` | I cloned and ran everything in a root shell; ns-3 refuses to build as root on purpose | `mv /root/ns-3-dev /home/joy/ && chown -R joy:joy /home/joy/ns-3-dev`, then work as `joy` |
+| 2 | `CMake 3.25..3.25 or higher is required. You are running version 3.22.1` | ns-3.48 raised the CMake minimum from 3.20 to 3.25; Ubuntu 22.04 ships 3.22 | user-level CMake 3.31.6 from pip, first on `PATH`; then `rm -rf cmake-cache` and configure again. Pinned 3.x rather than CMake 4, which drops old `cmake_minimum_required` syntax |
+| 3 | 5G-LENA README install commands still say `ns-3.46` / `5g-lena-v4.1.1` | README text not updated; its compatibility table is | followed the table: v5.1.y ↔ ns-3.48 |
+| 4 | TODO | | |
+
+## 2. Traffic Model (3GPP TR 26.926)
+
+The assignment names "TS 26.926", but 26.926 is a **Technical Report (TR)**: *Traffic Models and Quality Evaluation Methods for Media and XR Services in 5G Systems*. Its XR video traffic model is the one RAN1 defined for XR evaluations in TR 38.838 (Sec. 5.1.1, Table 5.1.1.1-1); 5G-LENA cites the same table.
+
+### 2.1 The model
+
+Single-stream DL XR / cloud video, one stream per UE:
+
+| Parameter | Model | My default |
+| --- | --- | --- |
+| Frame rate $F$ | fixed | 60 fps |
+| Data rate $R$ | fixed | 30 Mbps per UE |
+| Frame size $S$ | truncated Gaussian, mean $\bar S = R/(8F)$, STD $0.105\,\bar S$, range $[0.5\,\bar S,\ 1.5\,\bar S]$ | mean 62 500 B, STD 6 563 B, range [31 250, 93 750] B |
+| Frame jitter $J$ | truncated Gaussian, mean 0, STD 2 ms, range [−4, 4] ms | same |
+| Arrival of frame $k$ | $t_k = k/F + J_k$ (jitter around a fixed grid) | same |
+| Packetisation | not fixed by the model | frame cut into UDP payloads of ≤ 1400 B, sent back to back |
+
+What this predicts, and what I check in [5.1](#51-traffic-model-verification-pdf--cdf):
+
+- **Frame size** follows the truncated Gaussian exactly.
+- **Frame inter-arrival** is $1/F + J_{k+1} - J_k$: centred on 16.67 ms, spread ±8 ms, triangular-ish because it is the difference of two jitters.
+- **Packet size** is almost all 1400 B, plus one smaller "remainder" packet per frame (about 45 packets per frame).
+- **Packet inter-arrival** is 0 ms for packets inside a frame (≈ 98 % of gaps) and the frame gap otherwise.
+
+### 2.2 Built-in or my own?
+
+5G-LENA v5.1 has a built-in generator for this model, `ns3::TrafficGenerator3gppGenericVideo` (`contrib/nr/utils/traffic-generators/model/traffic-generator-3gpp-generic-video.cc`). Reading its source, it does not match the table above:
+
+| Point | TR 38.838 / TR 26.926 | Built-in generator (v5.1 source) |
+| --- | --- | --- |
+| Frame size spread | STD = 10.5 % of the mean | sets the `Variance` of the normal RV to `0.105 * mean` (line 299), so STD = √(0.105 · 62 500) ≈ 81 B instead of 6 563 B: frames are almost constant |
+| Jitter spread | STD 2 ms | `Variance` set to 2 (line 303), so STD ≈ 1.41 ms |
+| Jitter range | ±4 ms | `BoundJitter` default 2, so ±2 ms |
+| Jitter type | around a fixed grid, $k/F + J_k$ | added to each gap, $1/F + J$ (line 262), so arrival times drift as a random walk |
+| Jitter resolution | continuous | jitter attributes are integers in ms |
+
+So I wrote my own generator, `XrVideoApp`, that follows the table (rejection sampling gives the exact truncated Gaussian; variance = STD²; jitter on a fixed grid). I used AI (Claude) to help write it and the plotting script; I checked every model parameter against the table and the generator against the model with the plots and KS tests in [5.1](#51-traffic-model-verification-pdf--cdf).
+
+## 3. First Scenario: Intent-Driven Two-Slice NR
+
+This is the first, check-free version of the system in my A1 proposal: an intent is translated into a slice configuration and enacted, then the network is measured. Today's baseline only checks "does it fit?", which is what `intent_enact.py` does.
+
+```mermaid
+flowchart LR
+    I["Intent JSON\n(slice A bw share, UEs, traffic, slice B SLA)"] --> C{"Capacity-only check\nintent_enact.py"}
+    C -->|"reject: shares > 1 or too few RBs"| I
+    C -->|"accept"| T["Translate to ns-3 args"]
+    T --> S["ns-3 run: a2-intent-slicing\n1 gNB, BWP 0 = slice A, BWP 1 = slice B"]
+    S --> K["FlowMonitor + tx log + PCAP"]
+    K --> A["analyze.py\ntraffic model PDF/CDF, per-slice KPIs,\nslice B SLA met / violated"]
+```
+
+| Element | Setting |
+| --- | --- |
+| Topology | 1 gNB (10 m high), UEs at 1.5 m in a 3 m × 3 m area (from `cttc-nr-demo`), UMi channel, ideal direct-path beamforming |
+| Spectrum | 100 MHz total at 28 GHz, split by the intent into two bands (one CC, one BWP each), numerology 2 (60 kHz) on both; gNB power 35 dBm split in proportion to bandwidth |
+| Slice A (eMBB video) | 5QI 9 → BWP 0; `XrVideoApp`, 30 Mbps, 60 fps per UE; 2 UEs |
+| Slice B (low latency) | 5QI 80 → BWP 1; 100 B every 4 ms per UE (UdpClient); 2 UEs |
+| Slice B SLA | p95 delay ≤ 10 ms (5QI 80 packet delay budget, TS 23.501 Table 5.7.4-1); loss ≤ 1 % (relaxed from the 5QI error rate, which a 6 s run cannot measure) |
+| Intents | `a70`: slice A 70 %, slice B 30 %. `a90`: slice A 90 %, slice B 10 % (still "fits", 13 RBs left for B) |
+| Time | 6 s, apps start at 0.5 s |
+
+## 4. Source Code and Run Commands
+
+| File | What it does |
+| --- | --- |
+| [src/a2-intent-slicing.cc](src/a2-intent-slicing.cc) | ns-3 scenario + `XrVideoApp` (3GPP video generator); writes tx log, FlowMonitor XML, KPI text, PCAP |
+| [src/intent_enact.py](src/intent_enact.py) | reads an intent, capacity-only check, translates to ns-3 arguments, runs it |
+| [src/analyze.py](src/analyze.py) | PDF/CDF of my traffic vs the model, KS tests, per-slice KPIs, slice B SLA verdict |
+| [intents/](intents/) | `intent-a70.json`, `intent-a90.json` |
+
+On the VM (the repo cloned at `~/MWN`):
+
+```bash
+cp ~/MWN/A2-ns3-setup/src/a2-intent-slicing.cc ~/ns-3-dev/scratch/
+cd ~/ns-3-dev && ./ns3 build a2-intent-slicing
+
+cd ~/MWN/A2-ns3-setup/src
+python3 intent_enact.py ../intents/intent-a70.json --out ../results --run
+python3 analyze.py ../results intent-a70 --intent ../intents/intent-a70.json
+python3 intent_enact.py ../intents/intent-a90.json --out ../results --run
+python3 analyze.py ../results intent-a90 --intent ../intents/intent-a90.json
+```
+
+## 5. Results From My Run
+
+### 5.1 Traffic model verification (PDF / CDF)
+
+TODO after the run: insert `results/intent-a70-traffic-model.png` and the KS table from `results/intent-a70-summary.md`.
+
+### 5.2 Per-slice KPIs
+
+TODO after the run: per-slice throughput, mean and p95 delay, loss for `a70` and `a90`, and the slice B SLA verdict.
+
+### 5.3 PCAP in Wireshark
+
+TODO after the run: screenshot of `results/intent-a70-rh-*.pcap` (UDP to port 5000 in bursts of ~45 packets every ~16.7 ms; port 6000 every 4 ms), plus Statistics → I/O Graph.
+
+## 6. Link to My Project
+
+| A1 plan for A2 | Status |
+| --- | --- |
+| ns-3 + 5G-LENA installed | done (ns-3.48, v5.1) |
+| Two BWPs (two slices) running | done: BWP width set by the intent |
+| Per-slice throughput, delay, loss from FlowMonitor | done: plus p95 delay and SLA verdict |
+| Video-like traffic for slice A | done: 3GPP TR 26.926 / 38.838 model, verified |
+
+Next (A3/A4): pick the baseline paper on RAN slicing QoS, then sweep the slice A share (S1) and slice B load (S2) with ≥ 10 seeds per point.
+
+## 7. References
+
+1. 3GPP TR 26.926, *Traffic Models and Quality Evaluation Methods for Media and XR Services in 5G Systems*. https://www.3gpp.org/ftp/Specs/archive/26_series/26.926/
+2. 3GPP TR 38.838 V17.0.0, *Study on XR (Extended Reality) evaluations for NR*, Sec. 5.1.1.
+3. 3GPP TS 23.501, *System architecture for the 5G System*, Table 5.7.4-1 (standardized 5QI characteristics).
+4. ns-3.48 release notes and installation guide. https://www.nsnam.org/
+5. 5G-LENA NR module, `5g-lena-v5.1.y`, README compatibility table and `examples/cttc-nr-demo.cc`. https://gitlab.com/cttc-lena/nr

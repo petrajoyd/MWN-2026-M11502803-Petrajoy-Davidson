@@ -1,0 +1,22 @@
+{
+  "intent_id": "a70",
+  "statement": "Give the video slice 70% of the 100 MHz carrier; keep the low-latency slice within its 5QI 80 budget.",
+  "total_bandwidth_mhz": 100,
+  "slices": {
+    "A": {
+      "type": "eMBB-video",
+      "five_qi": 9,
+      "bw_share": 0.7,
+      "ues": 2,
+      "traffic": { "model": "3GPP-XR-video", "rate_mbps": 30, "fps": 60 }
+    },
+    "B": {
+      "type": "low-latency",
+      "five_qi": 80,
+      "bw_share": 0.3,
+      "ues": 2,
+      "traffic": { "model": "periodic", "packet_bytes": 100, "period_ms": 4 },
+      "sla": { "delay_p95_ms": 10, "loss_pct": 1 }
+    }
+  }
+}
