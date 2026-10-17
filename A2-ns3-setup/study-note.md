@@ -36,7 +36,7 @@
 | CMake | 3.31.6 from pip, user-level (system CMake 3.22.1 is too old, see 1.3) |
 | Python | 3.10 (ns-3.48 needs ≥ 3.10) |
 | Build | `default` profile (debug + optimisation), examples and tests on, `-j4` |
-| Build time | TODO: from `time` in `~/a2-build.log` |
+| Build time | 53 min 28 s wall clock for 2 389 targets (`-j4`, niced, VM shared with k8s); my scenario then compiled first time |
 
 **Why the VM and not my laptop:** the laptop is Windows without WSL. ns-3 is developed and tested on Linux, the VM already runs Ubuntu 22.04 with 8 cores, and it is the same machine I use for the O-RAN lab, so the project and the simulator live in one place.
 
@@ -79,7 +79,6 @@ Configure result: `nr` is in "Modules configured to be built", `SQLite support :
 | 1 | `Exception: Refusing to run as root` from `./ns3 configure` | I cloned and ran everything in a root shell; ns-3 refuses to build as root on purpose | `mv /root/ns-3-dev /home/joy/ && chown -R joy:joy /home/joy/ns-3-dev`, then work as `joy` |
 | 2 | `CMake 3.25..3.25 or higher is required. You are running version 3.22.1` | ns-3.48 raised the CMake minimum from 3.20 to 3.25; Ubuntu 22.04 ships 3.22 | user-level CMake 3.31.6 from pip, first on `PATH`; then `rm -rf cmake-cache` and configure again. Pinned 3.x rather than CMake 4, which drops old `cmake_minimum_required` syntax |
 | 3 | 5G-LENA README install commands still say `ns-3.46` / `5g-lena-v4.1.1` | README text not updated; its compatibility table is | followed the table: v5.1.y ↔ ns-3.48 |
-| 4 | TODO | | |
 
 ## 2. Traffic Model (3GPP TR 26.926)
 
@@ -140,7 +139,7 @@ flowchart LR
 | Slice A (eMBB video) | 5QI 9 → BWP 0; `XrVideoApp`, 30 Mbps, 60 fps per UE; 2 UEs |
 | Slice B (low latency) | 5QI 80 → BWP 1; 100 B every 4 ms per UE (UdpClient); 2 UEs |
 | Slice B SLA | p95 delay ≤ 10 ms (5QI 80 packet delay budget, TS 23.501 Table 5.7.4-1); loss ≤ 1 % (relaxed from the 5QI error rate, which a 6 s run cannot measure) |
-| Intents | `a70`: slice A 70 %, slice B 30 %. `a90`: slice A 90 %, slice B 10 % (still "fits", 13 RBs left for B) |
+| Intents | `a70`: slice A 70 %, slice B 30 %. `a90`: slice A 90 %, slice B 10 % (still "fits", 13 RBs left for B). `a70-heavyB`, `a90-heavyB`: the same splits with slice B at 1000 B every 0.4 ms (20 Mbps per UE) |
 | Time | 6 s, apps start at 0.5 s |
 
 ## 4. Source Code and Run Commands
@@ -150,7 +149,8 @@ flowchart LR
 | [src/a2-intent-slicing.cc](src/a2-intent-slicing.cc) | ns-3 scenario + `XrVideoApp` (3GPP video generator); writes tx log, FlowMonitor XML, KPI text, PCAP |
 | [src/intent_enact.py](src/intent_enact.py) | reads an intent, capacity-only check, translates to ns-3 arguments, runs it |
 | [src/analyze.py](src/analyze.py) | PDF/CDF of my traffic vs the model, KS tests, per-slice KPIs, slice B SLA verdict |
-| [intents/](intents/) | `intent-a70.json`, `intent-a90.json` |
+| [intents/](intents/) | `intent-a70.json`, `intent-a90.json`, `intent-a70-heavyB.json`, `intent-a90-heavyB.json` |
+| [results/](results/) | per-intent `-summary.md`, `-kpi.txt`, `-flowmon.xml`, `-tx.csv`, `-traffic-model.png`, `-enactment.json`; PCAP for `a70` only (the others are 41–68 MB each and stay on the VM) |
 
 On the VM (the repo cloned at `~/MWN`):
 
@@ -163,17 +163,59 @@ python3 intent_enact.py ../intents/intent-a70.json --out ../results --run
 python3 analyze.py ../results intent-a70 --intent ../intents/intent-a70.json
 python3 intent_enact.py ../intents/intent-a90.json --out ../results --run
 python3 analyze.py ../results intent-a90 --intent ../intents/intent-a90.json
+
+# same splits, heavy slice B
+for i in a70-heavyB a90-heavyB; do
+  python3 intent_enact.py ../intents/intent-$i.json --out ../results --run
+  python3 analyze.py ../results intent-$i --intent ../intents/intent-$i.json
+done
 ```
 
 ## 5. Results From My Run
 
 ### 5.1 Traffic model verification (PDF / CDF)
 
-TODO after the run: insert `results/intent-a70-traffic-model.png` and the KS table from `results/intent-a70-summary.md`.
+Run `intent-a70`, 6 s simulated (5.5 s of traffic), 2 video UEs → 660 frames and 29 715 packets from my generator. Blue = my ns-3 run, orange = the 3GPP model (exact truncated-Gaussian PDF for frame size; 2 × 10⁵ Monte-Carlo frames of the same model for the other curves).
+
+![Traffic model check: PDF and CDF of frame size, frame inter-arrival, packet size and packet inter-arrival, my run vs the 3GPP model](results/intent-a70-traffic-model.png)
+
+| Quantity | Samples | My mean | 3GPP model mean | KS test |
+| --- | --- | --- | --- | --- |
+| Frame size (B) | 660 | 62 333 | 62 500 | D = 0.035, p = 0.38 |
+| Frame jitter (ms) | 660 | −0.00 | 0.00 | D = 0.018, p = 0.98 |
+| Frame inter-arrival (ms) | 658 | 16.66 | 16.67 | D = 0.020, p = 0.95 (two-sample) |
+| Packet size (B) | 29 715 | 1 384 | 1 385 | n/a (deterministic given the frame size) |
+| Packet inter-arrival (ms) | 29 713 | 0.369 | 0.369 | n/a |
+
+**Reading it:** all three KS tests give p > 0.05, so there is no evidence that my generated traffic differs from the 3GPP model. The packet-level curves follow from the frame model plus my 1400 B packetisation: almost every packet is 1400 B with one smaller remainder per frame, and almost every packet gap is 0 ms (packets of one frame leave back to back) with a ~16.7 ms gap between frames.
 
 ### 5.2 Per-slice KPIs
 
-TODO after the run: per-slice throughput, mean and p95 delay, loss for `a70` and `a90`, and the slice B SLA verdict.
+From FlowMonitor (`results/intent-a70-kpi.txt`, `results/intent-a70-summary.md`); p95 delay from the FlowMonitor delay histogram (0.1 ms bins, upper bin edge).
+
+Four intents, all **accepted** by the capacity-only check. Slice A is the same in all four (2 UEs × 30 Mbps XR video; same seed, so its traffic is byte-identical across runs). Slice B is either light (2 UEs × 100 B / 4 ms = 0.2 Mbps each) or heavy (2 UEs × 1000 B / 0.4 ms = 20 Mbps each, the `-heavyB` intent files).
+
+| Intent | Split A / B | Slice B load | Slice | Throughput (Mbps) | Mean delay (ms) | p95 delay (ms) | Loss (%) | Slice B SLA (p95 ≤ 10 ms, loss ≤ 1 %) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `a70` | 70 / 30 MHz | 0.4 Mbps | A | 61.22 | 2.089 | 3.70 | 0.00 | |
+| | | | B | 0.51 | 0.895 | 1.00 | 0.00 | **met** |
+| `a90` | 90 / 10 MHz | 0.4 Mbps | A | 61.23 | 1.758 | 3.00 | 0.00 | |
+| | | | B | 0.51 | 0.923 | 1.00 | 0.00 | **met** |
+| `a70-heavyB` | 70 / 30 MHz | 40 Mbps | A | 61.22 | 2.089 | 3.70 | 0.00 | |
+| | | | B | 41.14 | 0.876 | 1.10 | 0.01 | **met** |
+| `a90-heavyB` | 90 / 10 MHz | 40 Mbps | A | 61.23 | 1.758 | 3.00 | 0.00 | |
+| | | | B | 37.03 | 7.229 | **12.70** | **9.99** | **violated** |
+
+(Throughput is measured from the first to the last received packet; the low-load slice B row shows 0.51 Mbps because it includes UDP/IP headers.)
+
+**What this shows**
+
+1. **The intent loop works end to end.** Each intent was translated, enacted as a BWP split, measured, and judged against slice B's SLA without touching the code.
+2. **The capacity-only check accepts a harmful intent.** `a90-heavyB` fits the carrier (10 MHz = 13 RBs is a valid BWP), yet slice B misses both targets: p95 delay 12.7 ms against its 10 ms budget, and 10 % of its packets not delivered. This is the problem statement of my A1 proposal, now reproduced in my own simulator.
+3. **The damage depends on the victim's load, not only on the share.** The same 90 / 10 split is harmless when slice B is light (`a90`) and harmful when it is heavy (`a90-heavyB`). A check that looks only at the requested share cannot tell these apart; it has to estimate slice B's QoS from its load as well. This refines the A1 plan: scenario S1 has to sweep slice B load, not only slice A's share.
+4. **Slices are isolated by the static BWP split.** Slice A's KPIs do not change when slice B goes from light to heavy, and slice A gets slightly lower delay with more bandwidth (2.09 → 1.76 ms). The harm to B comes only from the bandwidth taken away from it.
+
+**Limits of these numbers:** one seed and 6 s per intent. The "loss" under `a90-heavyB` counts packets still queued at the end of the run: the RLC buffer is unbounded, so the overloaded BWP builds a backlog rather than dropping. The A1 plan (≥ 10 seeds, 95 % confidence intervals, a warm-up check) applies from A4 on.
 
 ### 5.3 PCAP in Wireshark
 

@@ -1,0 +1,12 @@
+Flow 1 slice B (1.0.0.2:49155 -> 7.0.0.4:6000)
+  tx 13750 pkts, rx 12369 pkts, throughput 18.495 Mbps, mean delay 7.292 ms
+Flow 2 slice B (1.0.0.2:49156 -> 7.0.0.5:6000)
+  tx 13750 pkts, rx 12383 pkts, throughput 18.516 Mbps, mean delay 7.166 ms
+Flow 3 slice A (1.0.0.2:49154 -> 7.0.0.3:5000)
+  tx 14872 pkts, rx 14872 pkts, throughput 30.550 Mbps, mean delay 1.743 ms
+Flow 4 slice A (1.0.0.2:49153 -> 7.0.0.2:5000)
+  tx 14843 pkts, rx 14843 pkts, throughput 30.500 Mbps, mean delay 1.774 ms
+
+Per slice (intent a90-heavyB, slice A share 0.900)
+  Slice A: throughput 61.050 Mbps, mean delay 1.758 ms, mean jitter 0.070 ms, loss 0.000 %
+  Slice B: throughput 37.011 Mbps, mean delay 7.229 ms, mean jitter 0.154 ms, loss 9.993 %

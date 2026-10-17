@@ -1,0 +1,41 @@
+{
+  "intent": {
+    "intent_id": "a90-heavyB",
+    "statement": "Give the video slice 90% of the 100 MHz carrier (slice B carries 20 Mbps per UE).",
+    "total_bandwidth_mhz": 100,
+    "slices": {
+      "A": {
+        "type": "eMBB-video",
+        "five_qi": 9,
+        "bw_share": 0.9,
+        "ues": 2,
+        "traffic": {
+          "model": "3GPP-XR-video",
+          "rate_mbps": 30,
+          "fps": 60
+        }
+      },
+      "B": {
+        "type": "low-latency",
+        "five_qi": 80,
+        "bw_share": 0.1,
+        "ues": 2,
+        "traffic": {
+          "model": "periodic",
+          "packet_bytes": 1000,
+          "period_ms": 0.4
+        },
+        "sla": {
+          "delay_p95_ms": 10,
+          "loss_pct": 1
+        }
+      }
+    }
+  },
+  "capacity_check": "accept",
+  "ns3_command": [
+    "./ns3",
+    "run",
+    "a2-intent-slicing --intentId=a90-heavyB --totalBandwidth=100000000.0 --sliceAShare=0.9 --uesSliceA=2 --uesSliceB=2 --videoRateMbps=30 --videoFps=60 --llPacketBytes=1000 --llPeriodMs=0.4 --numerology=2 --simTime=6.0s --simTag=intent-a90-heavyB --outputDir=/home/joy/MWN/A2-ns3-setup/results"
+  ]
+}
