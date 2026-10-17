@@ -242,6 +242,8 @@ The I/O graph (Statistics → I/O Graphs, 1 ms bins, Y = bits) shows the same st
 
 ![Wireshark I/O graph, 1 ms bins: slice A spikes of ~500 kbit (one video frame) and ~1 Mbit (two UEs' frames in the same bin), slice B flat near zero](results/intent-a70-rh-8-1_IO.png)
 
+Vector version saved from Wireshark: [results/intent-a70-rh-8-1_IO.pdf](results/intent-a70-rh-8-1_IO.pdf).
+
 ## 6. Link to My Project
 
 | A1 plan for A2 | Status |
