@@ -49,9 +49,10 @@ have an LLM review it, and commit the feedback.
 - Submissions:
   - [x] [Study Note](./A2-ns3-setup/study-note.md) — ns-3 version, platform, install steps, what broke
   - [x] [Source code + run command](./A2-ns3-setup/study-note.md#4-source-code-and-run-commands) for your simple scenario ([src/](./A2-ns3-setup/src/))
-  - [ ] [Result from your own run](./A2-ns3-setup/study-note.md#5-results-from-my-run) — numbers, trace, or a Wireshark capture
+  - [x] [Result from your own run](./A2-ns3-setup/study-note.md#5-results-from-my-run) — numbers, trace, or a Wireshark capture
+  - [x] [Slides](./A2-ns3-setup/presentation/A2-ns3-setup-traffic-model.pptx) + [speaker script](./A2-ns3-setup/presentation/script.md)
   - [ ] [Rehearsal Presentation](path to recording + LLM feedback)
-  - [ ] [Peer Review](https://forms.gle/eGE2JJgjXpCXwqfq7)
+  - [x] [Peer Review](https://forms.gle/5GRYBEh66qm3YCEi9)
 
 ### A3 — Literature Review
 
