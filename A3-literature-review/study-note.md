@@ -113,9 +113,9 @@ M. Polese, L. Bonati, S. D'Oro, S. Basagni, T. Melodia, "ColO-RAN: Developing ma
 | Element | Description |
 | --- | --- |
 | Environment | Colosseum emulator, RF scenario of downtown Rome (base station positions from OpenCelliD); 7 srsRAN-based base stations (SCOPE), 42 UEs, 3 slices (eMBB, MTC, URLLC), 2 UEs per slice per base station; near-RT RIC (OSC Bronze) over E2 |
-| Inputs (actions) | **Slicing:** number of PRBs per slice, out of 50 (PRB masks in the scheduler). **Scheduling:** RR, waterfilling or PF per slice. The allocations the agent picks from include (eMBB, MTC, URLLC) = (36, 9, 5), (30, 9, 11), (30, 15, 5), (24, 21, 5), (24, 15, 11), (18, 15, 17), (18, 9, 23), (12, 15, 23), (6, 39, 5), (6, 9, 35) |
-| Observations | From more than 30 KPMs, the agent uses downlink rate, buffer occupancy (or the ratio of PRBs granted to PRBs requested) and number of PHY transport blocks, 10 reports × 3 metrics compressed by an autoencoder |
-| Rewards / metrics | eMBB: maximise throughput. MTC: maximise PHY TBs. URLLC: minimise buffer size (sched-slicing xApp) or maximise PRB ratio (sched xApp) |
+| Inputs | KPM reports from each base station over E2. From more than 30 KPMs, the agent uses downlink rate, buffer occupancy (or the ratio of PRBs granted to PRBs requested) and number of PHY transport blocks: the last 10 reports × 3 metrics, compressed by an autoencoder. Slice traffic profile (slice-based or uniform) is a scenario input |
+| Outputs | The xApp's control action, sent to the base station: **slicing** = number of PRBs per slice out of 50 (PRB masks in the scheduler), and **scheduling** = RR, waterfilling or PF per slice. The PRB allocations the agent picks from include (eMBB, MTC, URLLC) = (36, 9, 5), (30, 9, 11), (30, 15, 5), (24, 21, 5), (24, 15, 11), (18, 15, 17), (18, 9, 23), (12, 15, 23), (6, 39, 5), (6, 9, 35) |
+| Performance metrics | per-slice, plotted as CDFs over time: **eMBB throughput** (Mbit/s, downlink rate per UE); **MTC PHY TBs** (transport blocks per second); **buffer size** (bytes in the downlink RLC buffer, for MTC and URLLC; lower is better); **URLLC PRB ratio** (PRBs granted / PRBs requested; 1 means the slice got all it asked for); cell throughput for the online-training study. The DRL rewards are built from the same metrics: maximise eMBB rate and MTC TBs, minimise URLLC buffer (or maximise its PRB ratio) |
 
 ### 3.3 Experimental results
 
@@ -174,9 +174,16 @@ M. A. Habib, P. E. Iturria-Rivera, Y. Ozcan, M. Elsayed, M. Bavand, R. Gaigalas,
 
 ### 4.4 Settings needed to reproduce, and what is missing
 
-| Given | Missing |
-| --- | --- |
-| carriers, bandwidths (but Table III says 50 and 100 MHz while the text says 60 and 100 MHz), SCS, power, antennas, traffic types, Informer hyper-parameters (lr 10⁻⁴, batch 32, 4 encoder / 2 decoder layers, dropout 0.1) | simulator name; number of base stations; scheduler; mobility; simulation time; seeds; dataset size and split; threshold values; input window length |
+| Setting | Value in [3] | Stated? |
+| --- | --- | --- |
+| Simulator | not named | **no** |
+| Topology | one macro cell with dense small cells, NR–LTE dual connectivity, 60 users (Fig. 1); number of base stations and their positions not given; mobility not given | partly |
+| Traffic model | video: Pareto, 12.5 ms mean inter-arrival; gaming: uniform, 40 ms; voice: Poisson, 20 ms; URLLC: Poisson, 0.5 ms; Fig. 10 notes a constant 5 Mbps load per user; packet sizes not given | partly |
+| PHY | NR: 3.5 and 30 GHz, 50 and 100 MHz in Table 3 (the text says 60 and 100 MHz), SCS 15 and 60 kHz, 43 dBm, 64-element ULA (mid-band), 128-element UPA (high-band); LTE: 800 MHz, 40 MHz, 15 kHz, 38 dBm; 3GPP CDL channel (variant not stated) | yes, with one conflict |
+| MAC | scheduler not stated; the controlled "applications" are traffic steering, cell sleeping, power allocation, beamforming / power control, handover | **no** (scheduler) |
+| Validation model | Informer: lr 10⁻⁴, batch 32, 4 encoder / 2 decoder layers, 16 / 8 heads, dropout 0.1 (Table 3); one-step-ahead forecast; input window length, threshold values ζ and training set size not given | partly |
+| Simulation time | x axes run to ~3 × 10⁶ time slots (Fig. 7) and ~5000 time slots (Fig. 10); slot length and total duration not given | **no** |
+| Seeds, runs | not given; Fig. 9 is one set of 100 intents | **no** |
 
 Habib et al. cannot be reproduced in ns-3 from the paper. I use it as the **closest prior method** to my check and as a model of what I must evaluate better: they report one accuracy over 100 intents without separating missed harmful intents from wrongly rejected safe ones, and the drift labels come from the same simulation data and threshold rules that the validator uses, so the evaluation is not independent of the method.
 

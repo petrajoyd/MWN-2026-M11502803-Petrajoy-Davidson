@@ -1,4 +1,4 @@
-param([string]$Repo = "C:\Users\pj02d\Documents\GitHub\petrajoyd\MWN-2026-M11502803-Petrajoy-Davidson")
+param([string]$Repo = "C:\Users\pj02d\Documents\GitHub\petrajoyd\MWN-2026-M11502803-Petrajoy-Davidson", [string]$Script = "")
 $ErrorActionPreference = "Stop"
 $A3 = Join-Path $Repo "A3-literature-review"
 $OutDir = Join-Path $A3 "presentation"
@@ -8,7 +8,7 @@ $Out = Join-Path $OutDir "A3-literature-review.pptx"
 # plain style: white slides, black text, one dark blue for emphasis
 $BLACK = "1A1A1A"; $GREY = "595959"; $LINE = "BFBFBF"; $HEADER = "EDEDED"; $BLUE = "1F4E79"; $RED = "C00000"
 $FONT = "Calibri"
-$TOTAL = 12
+$TOTAL = 13
 
 function RGB([string]$hex) { $r = [Convert]::ToInt32($hex.Substring(0,2),16); $g = [Convert]::ToInt32($hex.Substring(2,2),16); $b = [Convert]::ToInt32($hex.Substring(4,2),16); return $r + 256*$g + 65536*$b }
 
@@ -40,7 +40,6 @@ function Title($slide, [string]$text) {
 }
 
 function Footer($slide, $n) {
-    T $slide "Petrajoy Davidson  |  A3 Literature Review" 40 512 500 14 10 $GREY | Out-Null
     T $slide "$n" 860 512 60 14 10 $GREY $false 3 | Out-Null
 }
 
@@ -79,15 +78,67 @@ function Table($slide, $rows, $l, $t, $w, $h, $colW, $size = 14) {
     return $shape
 }
 
-# speaker notes from script.md: "## N. Title (m:ss)" sections
-$script = Get-Content (Join-Path $OutDir "script.md") -Raw -Encoding UTF8
+# optional speaker notes from a script kept outside the repo (-Script path): "## N. Title (m:ss)" sections
 $notes = @{}
-foreach ($m in [regex]::Matches($script, '(?ms)^## (\d+)\. [^\r\n]*\r?\n(.*?)(?=^## \d+\. |\z)')) {
-    $notes[[int]$m.Groups[1].Value] = ($m.Groups[2].Value.Trim() -replace '\r?\n\r?\n', "`r`r" -replace '\r?\n', ' ')
+if ($Script -and (Test-Path $Script)) {
+    $text = Get-Content $Script -Raw -Encoding UTF8
+    foreach ($m in [regex]::Matches($text, '(?ms)^## (\d+)\. [^\r\n]*\r?\n(.*?)(?=^## \d+\. |\z)')) {
+        $notes[[int]$m.Groups[1].Value] = ($m.Groups[2].Value.Trim() -replace '\r?\n\r?\n', "`r`r" -replace '\r?\n', ' ')
+    }
 }
-function Notes($slide, $n) { $slide.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text = $notes[$n] }
+function Notes($slide, $n) { if ($notes.ContainsKey($n)) { $slide.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text = $notes[$n] } }
 
 function NewSlide($n) { $s = $pres.Slides.Add($n, 12); $s.FollowMasterBackground = 0; $s.Background.Fill.Solid(); $s.Background.Fill.ForeColor.RGB = (RGB "FFFFFF"); return $s }
+
+# ---------- slide templates (same three slides for every paper, in the TA's order) ----------
+
+# 1) Problem, importance, challenges: the paper's own title block, then three labelled rows
+function ProblemSlide($n, [string]$tag, [string]$titlePng, [string]$venue, [string]$problem, [string]$importance, [string]$challenges) {
+    $s = NewSlide $n
+    Title $s "$tag Problem, importance, challenges"
+    $p = PicFit $s $titlePng 40 84 880 120
+    Source $s $venue 40 ($p.Top + $p.Height + 4) 880
+    $y = $p.Top + $p.Height + 34
+    foreach ($row in @(@("Problem", $problem), @("Importance", $importance), @("Challenges", $challenges))) {
+        T $s $row[0] 40 $y 140 24 18 $BLUE $true | Out-Null
+        $tb = T $s $row[1] 180 $y 740 70 17
+        $y += 82
+    }
+    Footer $s $n; Notes $s $n
+}
+
+# 2) System model: the paper's figure on the left, environment / inputs / outputs / metrics on the right
+function ModelSlide($n, [string]$tag, [string]$figPng, [string]$figSource, $rows, $figW = 420) {
+    $s = NewSlide $n
+    Title $s "$tag System model"
+    $p = PicFit $s $figPng 40 84 $figW 390
+    Source $s $figSource 40 ($p.Top + $p.Height + 4) $figW
+    $tx = 40 + $figW + 24; $tw = 920 - $tx
+    $all = @(, @("Element", "Description")) + $rows
+    Table $s $all $tx 84 $tw 200 @(110, ($tw - 110)) 13 | Out-Null
+    Footer $s $n; Notes $s $n
+}
+
+# 3) Results and settings to reproduce: result figure left, settings table right ("not stated" in red)
+function ResultSlide($n, [string]$tag, [string]$figPng, [string]$figSource, [string]$keyResult, $settings, $figW = 430) {
+    $s = NewSlide $n
+    Title $s "$tag Experimental results and settings to reproduce"
+    $p = PicFit $s $figPng 40 84 $figW 330
+    Source $s $figSource 40 ($p.Top + $p.Height + 4) $figW
+    T $s $keyResult 40 ($p.Top + $p.Height + 24) $figW 70 15 $BLACK $true | Out-Null
+    $tx = 40 + $figW + 24; $tw = 920 - $tx
+    $all = @(, @("Setting", "In the paper")) + $settings
+    $t = Table $s $all $tx 84 $tw 200 @(110, ($tw - 110)) 13
+    for ($r = 2; $r -le $all.Count; $r++) {
+        $tr = $t.Table.Cell($r, 2).Shape.TextFrame.TextRange
+        # colour only the clauses that say something is missing
+        foreach ($m in [regex]::Matches($tr.Text, '(?:^|; )([^;]*not stated[^;]*)')) {
+            $g = $m.Groups[1]
+            $tr.Characters($g.Index + 1, $g.Length).Font.Color.RGB = (RGB $RED)
+        }
+    }
+    Footer $s $n; Notes $s $n
+}
 
 # ---------- build ----------
 $app = New-Object -ComObject PowerPoint.Application
@@ -102,121 +153,88 @@ $l = $s.Shapes.AddLine(60, 290, 900, 290); $l.Line.ForeColor.RGB = (RGB $LINE)
 T $s "Petrajoy Davidson (M11502803)`rMultimedia Wireless Networks (ET5907701), Advanced path`r2026/11/17" 60 310 840 80 16 $BLACK | Out-Null
 Notes $s 1
 
-# 2. Where A2 left me
+# 2. Papers selected
 $s = NewSlide 2
-Title $s "Where A2 left me"
-$rows = @(
-    @("Intent", "Split A / B", "Slice B load", "Slice B p95 delay", "Slice B loss", "Slice B SLA"),
-    @("a70", "70 / 30 MHz", "0.4 Mbps", "1.0 ms", "0.00 %", "met"),
-    @("a90", "90 / 10 MHz", "0.4 Mbps", "1.0 ms", "0.00 %", "met"),
-    @("a70-heavyB", "70 / 30 MHz", "40 Mbps", "1.1 ms", "0.01 %", "met"),
-    @("a90-heavyB", "90 / 10 MHz", "40 Mbps", "12.7 ms", "9.99 %", "violated")
-)
-$t2 = Table $s $rows 40 90 880 180 @(140, 140, 140, 170, 140, 150) 16
-for ($c = 1; $c -le 6; $c++) { $t2.Table.Cell(5, $c).Shape.TextFrame.TextRange.Font.Bold = 1; $t2.Table.Cell(5, $c).Shape.TextFrame.TextRange.Font.Color.RGB = (RGB $RED) }
-Source $s "My A2 runs: ns-3.48 + 5G-LENA v5.1, 1 gNB, 100 MHz at 28 GHz split into two BWPs. SLA: p95 delay <= 10 ms, loss <= 1 %." 40 ($t2.Top + $t2.Height + 8) 880
-T $s "All four intents passed the capacity-only check. Questions I took to the literature:" 40 330 880 24 18 $BLACK $true | Out-Null
-Bullets $s @("Is it known that a share which fits can still break another slice?", "How should a slice's QoS be measured?", "Has anyone checked an intent like this before it is enacted?") 40 364 880 120 18 | Out-Null
-Footer $s 2; Notes $s 2
-
-# 3. Papers
-$s = NewSlide 3
 Title $s "Papers selected"
+T $s "Starting point (A2): a 90 / 10 split that passed the capacity check broke slice B's SLA (p95 delay 12.7 ms > 10 ms, 10 % loss) when slice B was heavily loaded." 40 84 880 50 16 | Out-Null
 $rows = @(
     @("", "Paper", "Venue", "What I use it for"),
     @("[1]", "Rana et al., A QoS improving downlink scheduling scheme for slicing in 5G RAN", "IEEE Trans. Veh. Technol., vol. 73, no. 3, 2024", "how slices share resources; how a slice's QoS is scored; 5G-LENA scenario"),
     @("[2]", "Polese et al., ColO-RAN: developing ML-based xApps for open RAN closed-loop control", "IEEE Trans. Mobile Comput., vol. 22, no. 10, 2023", "how slicing actions are defined; which measurements describe a slice"),
     @("[3]", "Habib et al., Harnessing LLMs, Informers and decision transformers for intent-driven RAN management in 6G", "IEEE Trans. Netw. Sci. Eng., vol. 13, 2026", "closest prior work to my check: validating an intent before it is executed")
 )
-Table $s $rows 40 90 880 120 @(40, 340, 210, 290) 15 | Out-Null
-T $s "First pass on about 12 candidates, kept only IEEE Transactions papers; second pass on every figure and parameter table." 40 300 880 40 16 $GREY | Out-Null
-Footer $s 3; Notes $s 3
+Table $s $rows 40 150 880 120 @(40, 340, 210, 290) 15 | Out-Null
+T $s "For each paper: (1) problem, importance, challenges; (2) system model; (3) results and the settings needed to reproduce them. Then the revised proposal." 40 400 880 50 16 $GREY | Out-Null
+Footer $s 2; Notes $s 2
 
-# 4. Rana: scenario
-$s = NewSlide 4
-Title $s "[1] Rana et al.: scenario and system model"
-$p = PicFit $s "rana-fig2-scenario.png" 40 84 470 320
-Source $s "Source: [1], Fig. 2" 40 ($p.Top + $p.Height + 4) 470
-$p = PicFit $s "rana-table3-params.png" 540 84 380 196
-Source $s "Source: [1], Table III" 540 ($p.Top + $p.Height + 4) 380
-Bullets $s @("Simulated in 5G-LENA (ns-3)", "3 slices: MTC, VoIP, 4K video (15 Mbps)", "80 % users indoor at 3 km/h, 20 % outdoor at 100 km/h", "Server-to-UPF delay: exponential, mean 20 ms") 540 316 380 160 15 | Out-Null
-Footer $s 4; Notes $s 4
+# ===== [1] Rana et al. =====
+ProblemSlide 3 "[1] Rana et al.:" "rana-title.png" "IEEE Trans. Veh. Technol., vol. 73, no. 3, pp. 4219-4233, Mar. 2024" `
+    "Split a cell's radio resources among slices with different QoS targets and priorities, at every scheduling interval." `
+    "Static per-slice reservation protects each slice but wastes spectrum; fixed priorities starve low-priority slices." `
+    "The delay before the RAN (server to UPF) is random and eats into the deadline; 'sequential' slice schedulers collapse under load; the optimal allocation is NP-hard."
 
-# 5. Rana: metric + results
-$s = NewSlide 5
-Title $s "[1] Rana et al.: service rate and results"
-$p = PicFit $s "rana-fig6-fig7.png" 40 82 400 410
-Source $s "Source: [1], Figs. 6 and 7" 40 ($p.Top + $p.Height + 4) 400
-T $s "Service rate" 470 90 450 24 18 $BLUE $true | Out-Null
-T $s "Share of 2 s windows (3GPP averaging window) in which a flow meets all its targets: delay, inter-packet delay, loss and throughput. Late packets count as lost." 470 118 450 90 16 | Out-Null
-T $s "Results" 470 220 450 24 18 $BLUE $true | Out-Null
-Bullets $s @("Fig. 6: as end-to-end delay grows to 80 ms, the proposed scheduler stays above ~84 %; FLS and CBAP drop to ~77 %", "Fig. 7: with inter-packet delay up to 36 ms, proposed ~77 %, others below 60 %", "In A2 I used one average per run, which hides short outages") 470 248 450 220 16 | Out-Null
-Footer $s 5; Notes $s 5
+ModelSlide 4 "[1] Rana et al.:" "rana-fig2-scenario.png" "Source: [1], Fig. 2" @(
+    @("Environment", "5G-LENA (ns-3). Macro cells at 3.7 GHz + small cells at 28 GHz, 2 x 2 km; 80 % users indoor (3 km/h), 20 % outdoor (100 km/h)"),
+    @("Inputs", "per-slice load (number of flows) of MTC, VoIP and video slices; slice priority vector; server-to-UPF delay (exponential, mean 20 ms)"),
+    @("Outputs", "per-packet resource block allocation at each scheduling interval"),
+    @("Metrics", "service rate: share of 2 s windows in which a flow meets all targets (delay, inter-packet delay, loss, throughput); goodput = throughput x (1 - PLR), late packets lost; max supported load")
+) 440
 
-# 6. Rana: load trade-off + reproduction
-$s = NewSlide 6
-Title $s "[1] Rana et al.: load trade-off and what I can reproduce"
-$p = PicFit $s "rana-fig4-load.png" 40 84 450 240
-Source $s "Source: [1], Fig. 4" 40 ($p.Top + $p.Height + 4) 450
-T $s "When the cell is full, flows added to one slice are paid for by the other slice. This is my A2 result, at a larger scale." 40 ($p.Top + $p.Height + 26) 450 70 16 | Out-Null
-$rows = @(
-    @("Needed to reproduce", "In the paper?"),
-    @("Layout, bands, power, SCS", "yes"),
-    @("Traffic models, QoS targets", "yes, no packet sizes"),
-    @("Users per slice", "no"),
-    @("Simulation length, seeds", "no (warm-up 1200 s)"),
-    @("Scheduler source code", "no")
-)
-$t6 = Table $s $rows 520 84 400 230 @(230, 170) 14
-for ($r = 4; $r -le 6; $r++) { $t6.Table.Cell($r, 2).Shape.TextFrame.TextRange.Font.Color.RGB = (RGB $RED) }
-T $s "A4 plan: rebuild the scenario in 5G-LENA (one macro and one small cell first) and reproduce the trend of Fig. 6 with 5G-LENA's own QoS and PF schedulers, 10 seeds." 520 340 400 120 16 | Out-Null
-Footer $s 6; Notes $s 6
+ResultSlide 5 "[1] Rana et al.:" "rana-fig6-fig7.png" "Source: [1], Figs. 6 and 7" `
+    "At 80 ms end-to-end delay the proposed scheduler keeps about 84% service rate; FLS and CBAP drop to about 77%." @(
+    @("Topology", "macro (43 dBm) + small cells (30 dBm), 866 m apart, small-cell radius 250 m; number of UEs per slice not stated"),
+    @("Traffic", "MTC 4-state semi-Markov (TCP echo); VoIP 12.65 kbit/s; H.265 4K video 15 Mbit/s, Pareto; packet sizes not stated"),
+    @("PHY / MAC", "200 MHz, SCS 15/30/60 kHz, TDD, 2x2 MIMO, 3GPP CQI/MCS tables; compared schedulers: proposed, FLS, CBAP, iRSS"),
+    @("Simulation time", "results taken after 1200 s warm-up; total length not stated"),
+    @("Seeds / runs", "not stated")
+) 380
 
-# 7. ColO-RAN: setup
-$s = NewSlide 7
-Title $s "[2] Polese et al. (ColO-RAN): setup and slicing actions"
-$p = PicFit $s "coloran-table2-params.png" 40 84 440 230
-Source $s "Source: [2], Table 2" 40 ($p.Top + $p.Height + 4) 440
-$p13 = PicFit $s "coloran-fig13-actions.png" 510 84 410 350
-Source $s "Source: [2], Fig. 13 (PRB split per slice: eMBB, MTC, URLLC)" 510 ($p13.Top + $p13.Height + 4) 410
-Bullets $s @("Colosseum emulator, srsRAN base stations, O-RAN near-RT RIC", "Slicing action = number of PRBs per slice, always summing to 50", "Every allocation 'fits'; only QoS tells them apart") 40 350 440 140 15 | Out-Null
-Footer $s 7; Notes $s 7
+# ===== [2] ColO-RAN =====
+ProblemSlide 6 "[2] Polese et al.:" "coloran-title.png" "IEEE Trans. Mobile Comput., vol. 22, no. 10, pp. 5787-5800, Oct. 2023 (screenshot: arXiv version)" `
+    "Design, train and test DRL xApps that control RAN slicing (PRBs per slice) and scheduling through the O-RAN near-RT RIC." `
+    "O-RAN enables data-driven closed-loop control, but without large datasets and testbeds it was rarely tried on a real RAN." `
+    "Collecting data at scale; testing closed-loop ML without causing outages; missing or irregular KPM reports; generalising to new deployments; choosing features."
 
-# 8. ColO-RAN: results
-$s = NewSlide 8
-Title $s "[2] Polese et al. (ColO-RAN): results"
-$p = PicFit $s "coloran-fig7-results.png" 40 82 400 410
-Source $s "Source: [2], Fig. 7" 40 ($p.Top + $p.Height + 4) 400
-Bullets $s @("DRL agents that control the PRB split beat fixed allocations, even the most-chosen one [36, 3, 11]", "Agents observe buffer occupancy, PRB ratio (granted / requested), rate and PHY TBs; other KPMs were redundant", "Online training on the live RAN lowered users' throughput while the agent explored", "For my check: read slice B's buffer occupancy and PRB use") 470 92 450 380 16 | Out-Null
-Footer $s 8; Notes $s 8
+ModelSlide 7 "[2] Polese et al.:" "coloran-fig13-actions.png" "Source: [2], Fig. 13 (PRB split per slice: eMBB, MTC, URLLC)" @(
+    @("Environment", "Colosseum emulator, Rome scenario: 7 srsRAN base stations, 42 UEs, 3 slices (eMBB, MTC, URLLC), O-RAN near-RT RIC over E2"),
+    @("Inputs", "KPM reports: downlink rate, buffer occupancy, PRB ratio, PHY transport blocks (last 10 reports, compressed by an autoencoder)"),
+    @("Outputs", "xApp action: PRBs per slice out of 50 (always summing to 50) and scheduler per slice (RR, WF, PF)"),
+    @("Metrics", "eMBB throughput; MTC PHY TBs per second; MTC/URLLC buffer size (bytes); URLLC PRB ratio = PRBs granted / requested")
+) 430
 
-# 9. Habib
-$s = NewSlide 9
-Title $s "[3] Habib et al.: intent validation before execution"
-$p = PicFit $s "habib-fig1-system.png" 40 82 230 380
-Source $s "Source: [3], Fig. 1" 40 ($p.Top + $p.Height + 4) 230
-$p9 = PicFit $s "habib-fig9-validation.png" 300 82 620 310
-Source $s "Source: [3], Fig. 9 (red = intent wrongly validated)" 300 ($p9.Top + $p9.Height + 4) 620
-Bullets $s @("Informer forecasts cell load, loss and power; a lookup table decides 'QoS drift' -> reject", "Reported 88 %: 12 of 100 wrong. Red marks sit on both rows, but misses and false rejections are not reported separately", "Cell-level, no per-slice SLA; simulator and seeds not stated") 300 ($p9.Top + $p9.Height + 26) 620 120 15 | Out-Null
-Footer $s 9; Notes $s 9
+ResultSlide 8 "[2] Polese et al.:" "coloran-fig7-results.png" "Source: [2], Fig. 7" `
+    "DRL agents that control the PRB split beat fixed allocations, even the one chosen most often, [36, 3, 11]." @(
+    @("Topology", "7 base stations, 42 UEs (2 per slice per BS), positions from a real Rome deployment"),
+    @("Traffic", "slice-based: eMBB 4 Mbit/s CBR, MTC 44.6 kbit/s and URLLC 89.3 kbit/s Poisson per UE; uniform: 1.5 Mbit/s per UE"),
+    @("PHY / MAC", "LTE (srsRAN), DL 0.98 GHz, UL 1.02 GHz, 10 MHz = 50 PRBs; schedulers RR, WF, PF"),
+    @("Simulation time", "3.4 GB / 73 h of traces in total; length of each experiment not stated"),
+    @("Seeds / runs", "not stated (hardware emulation)")
+) 380
 
-# 10. Gap
-$s = NewSlide 10
-Title $s "Comparison and gap"
-$rows = @(
-    @("", "[1] Rana", "[2] ColO-RAN", "[3] Habib", "My project"),
-    @("Who sets the slice share?", "the scheduler", "the DRL agent", "-", "an operator intent"),
-    @("Checked before enactment?", "no", "no", "yes, cell level", "yes, per slice"),
-    @("Slice QoS judged by", "service rate", "rate, buffer", "cell QoS drift", "service rate"),
-    @("Misses and false rejections reported separately?", "-", "-", "no (one accuracy)", "yes"),
-    @("Seeds / CI reported?", "no", "no", "no", "10 seeds, 95 % CI")
-)
-Table $s $rows 40 90 880 260 @(220, 150, 150, 160, 200) 16 | Out-Null
-T $s "Gap: in [1] and [2] the network picks the share itself; nobody checks a share requested from outside. [3] checks, but per cell and with one accuracy number that mixes misses and false rejections." 40 380 880 80 18 | Out-Null
-Footer $s 10; Notes $s 10
+# ===== [3] Habib et al. =====
+ProblemSlide 9 "[3] Habib et al.:" "habib-title.png" "IEEE Trans. Netw. Sci. Eng., vol. 13, pp. 4187-4206, 2026 (screenshot: arXiv version)" `
+    "Turn a natural-language intent into RAN actions, and check before execution whether the intent would degrade the network." `
+    "A well-formed intent can still hurt, e.g. 'increase energy efficiency by 30 %' during peak traffic." `
+    "Rule-based validation does not adapt to network changes; few-shot LLM parsing is inefficient; RL orchestration needs hand-made rewards."
 
-# 11. Changes
-$s = NewSlide 11
+ModelSlide 10 "[3] Habib et al.:" "habib-fig1-system.png" "Source: [3], Fig. 1" @(
+    @("Environment", "macro cell with dense small cells, NR-LTE dual connectivity, 60 users; video, gaming, voice and URLLC traffic"),
+    @("Inputs", "natural-language intent (type + magnitude); time series of cell traffic load, packet loss and power"),
+    @("Outputs", "intent valid / invalid (Informer forecast + lookup table of 'QoS drift'); then which RAN applications to run"),
+    @("Metrics", "validation accuracy; forecast MAE; throughput, delay and energy efficiency of the orchestration")
+) 250
+
+ResultSlide 11 "[3] Habib et al.:" "habib-fig9-validation.png" "Source: [3], Fig. 9 (red = intent wrongly validated)" `
+    "88 %: 12 of 100 intents wrong. Red marks sit on both rows, but misses and false rejections are not reported separately." @(
+    @("Topology", "macro + small cells, 60 users; number of base stations and mobility not stated"),
+    @("Traffic", "video Pareto 12.5 ms, gaming uniform 40 ms, voice Poisson 20 ms, URLLC Poisson 0.5 ms; packet sizes not stated"),
+    @("PHY / MAC", "NR 3.5 / 30 GHz, 50-100 MHz, SCS 15 / 60 kHz, 43 dBm; LTE 800 MHz, 40 MHz; scheduler not stated"),
+    @("Simulation time", "plots in time slots; slot length and duration not stated"),
+    @("Seeds / runs", "not stated; simulator name not stated")
+) 470
+
+# 12. Revised proposal
+$s = NewSlide 12
 Title $s "Revised proposal: what changed and why"
 $rows = @(
     @("A1", "A3 (revised)", "Why"),
@@ -228,16 +246,16 @@ $rows = @(
     @("-", "Out of scope: LLM parsing, DRL, new schedulers", "focus on the check itself")
 )
 Table $s $rows 40 90 880 200 @(220, 380, 280) 16 | Out-Null
-Footer $s 11; Notes $s 11
+Footer $s 12; Notes $s 12
 
-# 12. Plan
-$s = NewSlide 12
+# 13. Plan
+$s = NewSlide 13
 Title $s "Plan and take-away"
 Bullets $s @("A4 (12/1): Rana et al.'s scenario in 5G-LENA, service rate vs end-to-end delay, 10 seeds, compared with their Fig. 6", "Final (12/22): map slice B's service rate over (share, load), then the QoS-aware check vs capacity-only and Habib's threshold rule") 40 96 880 140 18 | Out-Null
 $l = $s.Shapes.AddLine(40, 280, 920, 280); $l.Line.ForeColor.RGB = (RGB $LINE)
 T $s "Take-away" 40 300 880 24 18 $BLUE $true | Out-Null
 T $s "Whether a slice share is safe depends on the load of both slices, and none of the papers checks a requested share before it is enacted." 40 330 880 80 22 $BLACK $true | Out-Null
-Footer $s 12; Notes $s 12
+Footer $s 13; Notes $s 13
 
 # ---------- save + export PNGs for QA ----------
 if (Test-Path $Out) { Remove-Item $Out -Force }
