@@ -58,8 +58,9 @@ have an LLM review it, and commit the feedback.
 
 - [Assignment Information](https://github.com/bmw-ece-ntust/multimedia-wireless-network?tab=readme-ov-file#a3--literature-review)
 - Submissions:
-  - [ ] [Study Note](path to your .md file) — per paper: problem / importance / challenges, system model (environment, I/Ps, O/Ps, metrics), experimental settings for ns-3
-  - [ ] [Revised project proposal](path to specific section in your study note) — what changed from A1 and why
+  - [x] [Study Note](./A3-literature-review/study-note.md) — per paper: problem / importance / challenges, system model (environment, I/Ps, O/Ps, metrics), experimental settings for ns-3
+  - [x] [Revised project proposal](./A3-literature-review/study-note.md#6-revised-project-proposal) — what changed from A1 and why
+  - [x] [Slides](./A3-literature-review/presentation/A3-literature-review.pptx)
   - [ ] [Rehearsal Presentation](path to recording + LLM feedback)
   - [ ] [Peer Review](https://forms.gle/eGE2JJgjXpCXwqfq7)
 
