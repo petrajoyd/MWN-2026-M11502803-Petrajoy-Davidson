@@ -1,2 +1,4 @@
 results/raw/
 __pycache__/
+
+presentation/build_deck.ps1

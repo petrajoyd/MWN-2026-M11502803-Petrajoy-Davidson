@@ -3,3 +3,5 @@ results/*.pcap
 !results/intent-a70-rh-8-1.pcap
 # speaker script: kept locally, not published
 presentation/script.md
+
+presentation/build_deck.ps1
