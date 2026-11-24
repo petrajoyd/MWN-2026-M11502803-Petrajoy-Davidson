@@ -68,10 +68,11 @@ have an LLM review it, and commit the feedback.
 
 - [Assignment Information](https://github.com/bmw-ece-ntust/multimedia-wireless-network?tab=readme-ov-file#a4--baseline-reproduction)
 - Submissions:
-  - [ ] [Study Note](path to your .md file)
-  - [ ] [Flowchart + source code for simulation and analysis](path to your src/)
-  - [ ] [Numerical results](path to specific section in your study note) — plotted against the paper's figure, with parameters, seeds and run count
-  - [ ] [Rehearsal Presentation](path to recording + LLM feedback)
+  - [x] [Study Note](./A4-baseline/study-note.md) — Rana et al. Fig. 6 (service rate vs server delay) in 5G-LENA
+  - [x] [Flowchart](./A4-baseline/study-note.md#2-flowchart) + [source code for simulation and analysis](./A4-baseline/src/)
+  - [x] [Numerical results](./A4-baseline/study-note.md#6-numerical-results) — plotted against the paper's figure, with [parameters](./A4-baseline/study-note.md#3-scenario-and-parameters), seeds (RngRun 1–5) and run count (10)
+  - [x] [Slides](./A4-baseline/presentation/A4-baseline-reproduction.pptx)
+  - [ ] [Rehearsal Presentation](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing) + [LLM feedback](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing)
   - [ ] [Peer Review](https://forms.gle/eGE2JJgjXpCXwqfq7)
 
 ### Final Project — Your Modification

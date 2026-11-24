@@ -1,0 +1,33 @@
+PF-s1: 41309 packets, overall SR at 10 ms = 82.2 %
+PF-s2: 42116 packets, overall SR at 10 ms = 91.8 %
+PF-s3: 41624 packets, overall SR at 10 ms = 78.9 %
+PF-s4: 42383 packets, overall SR at 10 ms = 82.8 %
+PF-s5: 40642 packets, overall SR at 10 ms = 82.8 %
+Qos-s1: 41309 packets, overall SR at 10 ms = 73.9 %
+Qos-s2: 42116 packets, overall SR at 10 ms = 100.0 %
+Qos-s3: 41624 packets, overall SR at 10 ms = 78.9 %
+Qos-s4: 42383 packets, overall SR at 10 ms = 66.2 %
+Qos-s5: 40642 packets, overall SR at 10 ms = 71.1 %
+| Delay (ms) | PF (mine) | Qos (mine) | Rana Proposed | Rana FLS | Rana CBAP |
+| --- | --- | --- | --- | --- | --- |
+| 10 | 83.7 ± 6.0 | 78.0 ± 16.3 | 97.2 | 95.1 | 94.1 |
+| 20 | 82.6 ± 3.0 | 75.6 ± 14.9 | 96.7 | 94.8 | 93.5 |
+| 30 | 80.6 ± 5.9 | 74.3 ± 16.2 | 94.5 | 92.0 | 90.4 |
+| 40 | 74.8 ± 8.7 | 71.9 ± 12.8 | 92.3 | 89.5 | 87.6 |
+| 50 | 67.8 ± 13.3 | 66.1 ± 20.4 | 88.5 | 84.6 | 82.4 |
+| 60 | 64.3 ± 8.4 | 59.7 ± 14.1 | 86.4 | 81.2 | 79.3 |
+| 70 | 59.4 ± 6.8 | 56.8 ± 9.0 | 85.4 | 79.5 | 77.4 |
+| 80 | 52.4 ± 7.9 | 51.2 ± 13.3 | 84.5 | 77.4 | 76.3 |
+
+Mean ± 95 % CI over 5 seeds; offset mode 'window'.
+
+RAN only (no server delay):
+scheduler slice  seeds  ran_loss_pct  ran_mean_ms  ran_p95_ms  ran_p99_ms  ran_max_ms
+       PF   MTC      5          0.11         3.51        6.55       13.29      109.71
+       PF Video      5          1.20        16.05       77.18      193.90      556.21
+       PF  VoIP      5          0.12         3.70        6.81       25.80      110.20
+      Qos   MTC      5          0.05         3.20        6.30        8.35      104.56
+      Qos Video      5          6.65        49.34      267.67      462.68     1297.46
+      Qos  VoIP      5          0.06         3.45        6.60        9.65      105.17
+
+wrote ..\results\sens-macro-vplr/fig6_reproduction.png, service_rate.csv, ran_delay.csv, fig6_table.md
