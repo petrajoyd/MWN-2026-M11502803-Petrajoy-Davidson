@@ -62,7 +62,7 @@ have an LLM review it, and commit the feedback.
   - [x] [Revised project proposal](./A3-literature-review/study-note.md#6-revised-project-proposal) — what changed from A1 and why
   - [x] [Slides](./A3-literature-review/presentation/A3-literature-review.pptx)
   - [x] [Rehearsal Presentation](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing) + [LLM feedback](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing)
-  - [ ] [Peer Review](https://forms.gle/eGE2JJgjXpCXwqfq7)
+  - [x] [Peer Review](https://forms.gle/eGE2JJgjXpCXwqfq7)
 
 ### A4 — Baseline Reproduction
 
@@ -72,7 +72,7 @@ have an LLM review it, and commit the feedback.
   - [x] [Flowchart](./A4-baseline/study-note.md#2-flowchart) + [source code for simulation and analysis](./A4-baseline/src/)
   - [x] [Numerical results](./A4-baseline/study-note.md#6-numerical-results) — plotted against the paper's figure, with [parameters](./A4-baseline/study-note.md#3-scenario-and-parameters), seeds (RngRun 1–5) and run count (10)
   - [x] [Slides](./A4-baseline/presentation/A4-baseline-reproduction.pptx)
-  - [ ] [Rehearsal Presentation](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing) + [LLM feedback](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing)
+  - [x] [Rehearsal Presentation](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing) + [LLM feedback](https://drive.google.com/drive/folders/1m53Jl0IFUCkIqQvvC54j-WxJgBKjXosT?usp=sharing)
   - [ ] [Peer Review](https://forms.gle/eGE2JJgjXpCXwqfq7)
 
 ### Final Project — Your Modification
